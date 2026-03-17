@@ -2,13 +2,20 @@ package com.recipefinder.backend.controller;
 
 import com.recipefinder.backend.domain.Favorite;
 import com.recipefinder.backend.domain.Recipe;
+import com.recipefinder.backend.dto.FavoriteDto;
+import com.recipefinder.backend.dto.RecipeDto;
+import com.recipefinder.backend.exception.AlreadyInFavoritesException;
+import com.recipefinder.backend.exception.FavoriteNotFoundException;
+import com.recipefinder.backend.exception.RecipeNotFoundException;
+import com.recipefinder.backend.mapper.FavoriteMapper;
+import com.recipefinder.backend.mapper.RecipeMapper;
 import com.recipefinder.backend.repository.FavoriteRepository;
 import com.recipefinder.backend.repository.RecipeRepository;
 import com.recipefinder.backend.service.AuditService;
 import com.recipefinder.backend.service.RecipeService;
+import com.recipefinder.backend.strategy.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
-import com.recipefinder.backend.strategy.*;
 
 import java.util.List;
 
@@ -21,62 +28,75 @@ public class RecipeController {
     private final RecipeService recipeService;
     private final FavoriteRepository favoriteRepository;
     private final AuditService auditService;
+    private final RecipeMapper recipeMapper;
+    private final FavoriteMapper favoriteMapper;
 
     @GetMapping
-    public List<Recipe> getAllRecipes() {
-        return recipeRepository.findAll();
+    public List<RecipeDto> getAllRecipes() {
+        return recipeMapper.mapToRecipeDtoList(recipeRepository.findAll());
     }
 
     @PostMapping("/random")
-    public Recipe addRandomRecipe() {
+    public RecipeDto addRandomRecipe() {
         Recipe recipe = recipeService.fetchAndSaveRandomRecipe();
         auditService.log("ADD_RANDOM_RECIPE", "Added: " + recipe.getTitle());
-        return recipe;
+        return recipeMapper.mapToRecipeDto(recipe);
     }
 
     @DeleteMapping("/{id}")
-    public void deleteRecipe(@PathVariable Long id) {
+    public void deleteRecipe(@PathVariable Long id) throws RecipeNotFoundException {
+        if (!recipeRepository.existsById(id)) throw new RecipeNotFoundException(id);
         recipeRepository.deleteById(id);
         auditService.log("DELETE_RECIPE", "Deleted recipe with ID: " + id);
     }
 
     @PutMapping("/{id}")
-    public Recipe updateRecipeTitle(@PathVariable Long id, @RequestParam String newTitle) {
-        Recipe recipe = recipeRepository.findById(id).orElseThrow();
+    public RecipeDto updateRecipeTitle(@PathVariable Long id, @RequestParam String newTitle) throws RecipeNotFoundException {
+        Recipe recipe = recipeRepository.findById(id)
+                .orElseThrow(() -> new RecipeNotFoundException(id));
+
         String oldTitle = recipe.getTitle();
         recipe.setTitle(newTitle);
         Recipe saved = recipeRepository.save(recipe);
         auditService.log("UPDATE_RECIPE_TITLE", "Changed from '" + oldTitle + "' to '" + newTitle + "'");
-        return saved;
+        return recipeMapper.mapToRecipeDto(saved);
     }
 
     @PostMapping("/{id}/favorite")
-    public Favorite addToFavorites(@PathVariable Long id) {
-        Recipe recipe = recipeRepository.findById(id).orElseThrow();
+    public FavoriteDto addToFavorites(@PathVariable Long id) throws RecipeNotFoundException, AlreadyInFavoritesException {
+        Recipe recipe = recipeRepository.findById(id)
+                .orElseThrow(() -> new RecipeNotFoundException(id));
+
         if (favoriteRepository.existsByRecipeId(id)) {
-            throw new RuntimeException("Recipe already in favorites");
+            throw new AlreadyInFavoritesException();
         }
+
         Favorite favorite = favoriteRepository.save(Favorite.builder().recipe(recipe).build());
         auditService.log("ADD_TO_FAVORITES", "Recipe: " + recipe.getTitle());
-        return favorite;
+        return favoriteMapper.mapToFavoriteDto(favorite);
     }
 
     @GetMapping("/favorites")
-    public List<Favorite> getFavorites() {
-        return favoriteRepository.findAll();
+    public List<FavoriteDto> getFavorites() {
+        return favoriteMapper.mapToFavoriteDtoList(favoriteRepository.findAll());
     }
 
     @DeleteMapping("/favorites/{id}")
-    public void removeFromFavorites(@PathVariable Long id) {
+    public void removeFromFavorites(@PathVariable Long id) throws FavoriteNotFoundException {
+        if (!favoriteRepository.existsById(id)) {
+            throw new FavoriteNotFoundException(id);
+        }
         favoriteRepository.deleteById(id);
         auditService.log("REMOVE_FROM_FAVORITES", "Favorite record ID: " + id);
     }
 
+
     @GetMapping("/healthy")
-    public List<Recipe> getHealthyRecipes() {
-        return recipeRepository.findAll().stream()
+    public List<RecipeDto> getHealthyRecipes() {
+        List<Recipe> healthy = recipeRepository.findAll().stream()
                 .filter(r -> r.getCalories() != null && r.getCalories() < 500)
                 .toList();
+        return recipeMapper.mapToRecipeDtoList(healthy);
     }
 
     @GetMapping("/stats/average-calories")
@@ -89,30 +109,37 @@ public class RecipeController {
     }
 
     @GetMapping("/search")
-    public List<Recipe> searchByTitle(@RequestParam String title) {
-        return recipeRepository.findAll().stream()
+    public List<RecipeDto> searchByTitle(@RequestParam String title) {
+        List<Recipe> searchResults = recipeRepository.findAll().stream()
                 .filter(r -> r.getTitle().toLowerCase().contains(title.toLowerCase()))
                 .toList();
+        return recipeMapper.mapToRecipeDtoList(searchResults);
     }
 
     @GetMapping("/category/{name}")
-    public List<Recipe> getRecipesByCategory(@PathVariable String name) {
-        return recipeRepository.findAll().stream()
+    public List<RecipeDto> getRecipesByCategory(@PathVariable String name) {
+        List<Recipe> byCategory = recipeRepository.findAll().stream()
                 .filter(r -> r.getCategory().equalsIgnoreCase(name))
                 .toList();
+        return recipeMapper.mapToRecipeDtoList(byCategory);
     }
 
     @GetMapping("/search/advanced")
-    public List<Recipe> advancedSearch(@RequestParam String type, @RequestParam String query) {
+    public List<RecipeDto> advancedSearch(@RequestParam String type, @RequestParam String query) {
         RecipeSearchStrategy strategy;
-
         if ("healthy".equalsIgnoreCase(type)) {
             strategy = new HealthySearchStrategy();
         } else {
             strategy = new NameSearchStrategy();
         }
 
-        List<Recipe> allRecipes = recipeRepository.findAll();
-        return strategy.filter(allRecipes, query);
+        List<Recipe> filtered = strategy.filter(recipeRepository.findAll(), query);
+        return recipeMapper.mapToRecipeDtoList(filtered);
     }
+    @DeleteMapping("/all")
+    public void deleteAll() {
+        recipeService.deleteAllRecipes();
+        auditService.log("SERVICE_DELETE_ALL", "All recipes removed from database");
+    }
+
 }

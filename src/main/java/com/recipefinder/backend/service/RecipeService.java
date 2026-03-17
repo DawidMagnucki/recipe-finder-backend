@@ -52,4 +52,9 @@ public class RecipeService {
 
         return recipeRepository.save(recipe);
     }
+
+    public void deleteAllRecipes() {
+        recipeRepository.deleteAll();
+    }
+
 }
