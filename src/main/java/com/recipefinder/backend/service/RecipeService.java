@@ -1,5 +1,6 @@
 package com.recipefinder.backend.service;
 
+import com.recipefinder.backend.client.EdamamClient;
 import com.recipefinder.backend.client.TheMealDBClient;
 import com.recipefinder.backend.domain.Recipe;
 import com.recipefinder.backend.repository.RecipeRepository;
@@ -14,6 +15,7 @@ public class RecipeService {
 
     private final TheMealDBClient theMealDBClient;
     private final RecipeRepository recipeRepository;
+    private final EdamamClient edamamClient;
 
     public Recipe fetchAndSaveRandomRecipe() {
         Map<String, String> rawMeal = theMealDBClient.fetchRandomMeal();
@@ -36,12 +38,16 @@ public class RecipeService {
     }
 
     private Recipe saveToDatabase(Map<String, String> rawMeal, String categoryName) {
+        String title = rawMeal.get("strMeal");
+        Integer kcal = edamamClient.getCaloriesForIngredient(title);
+
         Recipe recipe = Recipe.builder()
                 .externalId(rawMeal.get("idMeal"))
-                .title(rawMeal.get("strMeal"))
+                .title(title)
                 .instructions(rawMeal.get("strInstructions"))
                 .imageUrl(rawMeal.get("strMealThumb"))
                 .category(categoryName)
+                .calories(kcal)
                 .build();
 
         return recipeRepository.save(recipe);

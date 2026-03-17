@@ -21,5 +21,6 @@ public class Recipe {
     private String instructions;
     private String imageUrl;
     private String category;
+    private Integer calories;
 
 }
