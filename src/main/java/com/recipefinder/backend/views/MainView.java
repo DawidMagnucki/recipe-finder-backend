@@ -1,7 +1,9 @@
 package com.recipefinder.backend.views;
 
+import com.recipefinder.backend.domain.Favorite;
 import com.recipefinder.backend.domain.Recipe;
 import com.recipefinder.backend.domain.ShoppingItem;
+import com.recipefinder.backend.repository.FavoriteRepository;
 import com.recipefinder.backend.repository.RecipeRepository;
 import com.recipefinder.backend.repository.ShoppingRepository;
 import com.recipefinder.backend.service.RecipeService;
@@ -21,51 +23,72 @@ public class MainView extends VerticalLayout {
     private final RecipeService recipeService;
     private final RecipeRepository recipeRepository;
     private final ShoppingRepository shoppingRepository;
+    private final FavoriteRepository favoriteRepository;
 
-    private final Grid<Recipe> grid = new Grid<>(Recipe.class);
-    private final Grid<ShoppingItem> shoppingGrid = new Grid<>();
+    private final Grid<Recipe> recipeGrid = new Grid<>(Recipe.class);
+    private final Grid<Favorite> favoriteGrid = new Grid<>(Favorite.class);
+    private final Grid<ShoppingItem> shoppingGrid = new Grid<>(ShoppingItem.class);
 
-    public MainView(RecipeService recipeService, RecipeRepository recipeRepository, ShoppingRepository shoppingRepository) {
+    public MainView(RecipeService recipeService, RecipeRepository recipeRepository,
+                    ShoppingRepository shoppingRepository, FavoriteRepository favoriteRepository) {
         this.recipeService = recipeService;
         this.recipeRepository = recipeRepository;
         this.shoppingRepository = shoppingRepository;
+        this.favoriteRepository = favoriteRepository;
 
         setAlignItems(Alignment.CENTER);
+
+        // --- 1. RECIPE SECTION ---
         add(new H1("Recipe Finder Dashboard"));
 
-        // 1. RECIPE SECTION
-        grid.setColumns("title", "category");
-        grid.addComponentColumn(recipe -> {
-            Image image = new Image(recipe.getImageUrl(), "No image");
-            image.setWidth("80px");
+        recipeGrid.setColumns("title", "category", "calories");
+
+        recipeGrid.addComponentColumn(recipe -> {
+            Image image = new Image(recipe.getImageUrl() != null ? recipe.getImageUrl() : "", "No image");
+            image.setWidth("60px");
             return image;
         }).setHeader("Preview");
 
-        grid.addComponentColumn(recipe -> new Button("Add to Shopping List", e -> {
-            shoppingRepository.save(ShoppingItem.builder()
-                    .ingredientName("Ingredients for: " + recipe.getTitle())
-                    .amount("1 set")
-                    .isPurchased(false)
-                    .build());
-            refreshShoppingGrid();
-            Notification.show("Added to list!");
-        })).setHeader("Actions");
-
-        HorizontalLayout recipeButtons = new HorizontalLayout(
-                new Button("Generate Daily Menu Now", e -> {
-                    recipeService.generateDailyMenu();
-                    refreshGrid();
+        recipeGrid.addComponentColumn(recipe -> new HorizontalLayout(
+                new Button("❤️", e -> {
+                    if (!favoriteRepository.existsByRecipeId(recipe.getId())) {
+                        favoriteRepository.save(Favorite.builder().recipe(recipe).build());
+                        refreshFavoriteGrid();
+                        Notification.show("Added to Favorites!");
+                    } else {
+                        Notification.show("Already in Favorites!");
+                    }
                 }),
-                new Button("Fetch Random Recipe", e -> {
-                    recipeService.fetchAndSaveRandomRecipe();
-                    refreshGrid();
+                new Button("🛒", e -> {
+                    shoppingRepository.save(ShoppingItem.builder()
+                            .ingredientName("Ingredients for: " + recipe.getTitle())
+                            .amount("1 set")
+                            .isPurchased(false).build());
+                    refreshShoppingGrid();
+                    Notification.show("Added to shopping list!");
                 })
-        );
+        )).setHeader("Actions");
 
-        add(recipeButtons, grid);
+        add(new HorizontalLayout(
+                new Button("Generate Daily Menu", e -> { recipeService.generateDailyMenu(); refreshGrid(); }),
+                new Button("Fetch Random Recipe", e -> { recipeService.fetchAndSaveRandomRecipe(); refreshGrid(); })
+        ), recipeGrid);
 
-        // 2. SHOPPING LIST SECTION
-        add(new H1("My Shopping List"));
+        // --- 2. FAVORITES SECTION ---
+        add(new H1("My Favorites ❤️"));
+
+        favoriteGrid.setColumns();
+        favoriteGrid.addColumn(fav -> fav.getRecipe().getTitle()).setHeader("Recipe Title");
+        favoriteGrid.addColumn(fav -> fav.getRecipe().getCategory()).setHeader("Category");
+        favoriteGrid.addComponentColumn(fav -> new Button("Remove", e -> {
+            favoriteRepository.delete(fav);
+            refreshFavoriteGrid();
+        })).setHeader("Remove");
+
+        add(favoriteGrid);
+
+        // --- 3. SHOPPING LIST SECTION ---
+        add(new H1("My Shopping List 🛒"));
 
         TextField ingredientField = new TextField("Ingredient");
         TextField amountField = new TextField("Amount");
@@ -74,39 +97,30 @@ public class MainView extends VerticalLayout {
                 shoppingRepository.save(ShoppingItem.builder()
                         .ingredientName(ingredientField.getValue())
                         .amount(amountField.getValue())
-                        .isPurchased(false)
-                        .build());
+                        .isPurchased(false).build());
                 ingredientField.clear();
                 amountField.clear();
                 refreshShoppingGrid();
             }
         });
+        add(new HorizontalLayout(ingredientField, amountField, addBtn));
 
-        HorizontalLayout shoppingForm = new HorizontalLayout(ingredientField, amountField, addBtn);
-        shoppingForm.setAlignItems(Alignment.BASELINE);
-        add(shoppingForm);
-
-
-        shoppingGrid.addColumn(ShoppingItem::getIngredientName).setHeader("Ingredient");
-        shoppingGrid.addColumn(ShoppingItem::getAmount).setHeader("Amount");
+        shoppingGrid.setColumns("ingredientName", "amount");
+        // Dodajemy kolumnę sprawdzającą status
         shoppingGrid.addColumn(item -> item.isPurchased() ? "Yes" : "No").setHeader("Bought?");
-
-        shoppingGrid.addComponentColumn(item -> new Button("Remove", e -> {
+        shoppingGrid.addComponentColumn(item -> new Button("❌", e -> {
             shoppingRepository.delete(item);
             refreshShoppingGrid();
-        })).setHeader("Remove");
+        })).setHeader("Delete");
 
         add(shoppingGrid);
 
         refreshGrid();
         refreshShoppingGrid();
+        refreshFavoriteGrid();
     }
 
-    private void refreshShoppingGrid() {
-        shoppingGrid.setItems(shoppingRepository.findAll());
-    }
-
-    private void refreshGrid() {
-        grid.setItems(recipeRepository.findAll());
-    }
+    private void refreshGrid() { recipeGrid.setItems(recipeRepository.findAll()); }
+    private void refreshShoppingGrid() { shoppingGrid.setItems(shoppingRepository.findAll()); }
+    private void refreshFavoriteGrid() { favoriteGrid.setItems(favoriteRepository.findAll()); }
 }

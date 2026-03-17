@@ -1,6 +1,8 @@
 package com.recipefinder.backend.controller;
 
+import com.recipefinder.backend.domain.Favorite;
 import com.recipefinder.backend.domain.Recipe;
+import com.recipefinder.backend.repository.FavoriteRepository;
 import com.recipefinder.backend.repository.RecipeRepository;
 import com.recipefinder.backend.service.RecipeService;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +17,7 @@ public class RecipeController {
 
     private final RecipeRepository recipeRepository;
     private final RecipeService recipeService;
+    private final FavoriteRepository favoriteRepository;
 
     @GetMapping
     public List<Recipe> getAllRecipes() {
@@ -36,5 +39,24 @@ public class RecipeController {
         Recipe recipe = recipeRepository.findById(id).orElseThrow();
         recipe.setTitle(newTitle);
         return recipeRepository.save(recipe);
+    }
+
+    @PostMapping("/{id}/favorite")
+    public Favorite addToFavorites(@PathVariable Long id) {
+        Recipe recipe = recipeRepository.findById(id).orElseThrow();
+        if (favoriteRepository.existsByRecipeId(id)) {
+            throw new RuntimeException("Recipe already in favorites");
+        }
+        return favoriteRepository.save(Favorite.builder().recipe(recipe).build());
+    }
+
+    @GetMapping("/favorites")
+    public List<Favorite> getFavorites() {
+        return favoriteRepository.findAll();
+    }
+
+    @DeleteMapping("/favorites/{id}")
+    public void removeFromFavorites(@PathVariable Long id) {
+        favoriteRepository.deleteById(id);
     }
 }
