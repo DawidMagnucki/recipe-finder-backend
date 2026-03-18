@@ -22,7 +22,6 @@ public class EdamamClient {
     public static final String BASE_URL = "https://api.edamam.com/api/food-database/v2/parser";
 
     public Integer getCaloriesForIngredient(String ingredient) {
-//        String url = String.format("%s?q=%s&app_id=%s&app_key=%s", BASE_URL, ingredient, appId, appKey);
         String url = BASE_URL + "?app_id=" + appId + "&app_key=" + appKey + "&ingr=" + ingredient;
 
         try {

@@ -10,4 +10,7 @@ public class FavoriteDto {
     private Long id;
     private Long recipeId;
     private String recipeTitle;
+    private String recipeCategory;
+    private Integer recipeCalories;
+    private String recipeImageUrl;
 }

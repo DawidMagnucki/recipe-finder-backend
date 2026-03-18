@@ -14,6 +14,7 @@ public class ShoppingMapper {
                 .id(item.getId())
                 .ingredientName(item.getIngredientName())
                 .amount(item.getAmount())
+                .unit(item.getUnit())
                 .isPurchased(item.isPurchased())
                 .build();
     }

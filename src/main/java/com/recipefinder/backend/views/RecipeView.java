@@ -2,12 +2,11 @@ package com.recipefinder.backend.views;
 
 import com.recipefinder.backend.domain.Favorite;
 import com.recipefinder.backend.domain.Recipe;
-import com.recipefinder.backend.domain.ShoppingItem;
 import com.recipefinder.backend.repository.FavoriteRepository;
 import com.recipefinder.backend.repository.RecipeRepository;
-import com.recipefinder.backend.repository.ShoppingRepository;
 import com.recipefinder.backend.service.AuditService;
 import com.recipefinder.backend.service.RecipeService;
+import com.recipefinder.backend.service.ShoppingService;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
@@ -15,12 +14,16 @@ import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.HeaderRow;
 import com.vaadin.flow.component.html.H1;
 import com.vaadin.flow.component.html.Image;
+import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
+import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.data.value.ValueChangeMode;
+import com.vaadin.flow.router.QueryParameters;
 import com.vaadin.flow.router.Route;
+import com.vaadin.flow.router.RouterLink;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -31,9 +34,9 @@ public class RecipeView extends VerticalLayout {
 
     private final RecipeService recipeService;
     private final RecipeRepository recipeRepository;
-    private final ShoppingRepository shoppingRepository;
     private final FavoriteRepository favoriteRepository;
     private final AuditService auditService;
+    private final ShoppingService shoppingService;
 
     private final Grid<Recipe> recipeGrid = new Grid<>();
 
@@ -41,36 +44,48 @@ public class RecipeView extends VerticalLayout {
     private final TextField categoryFilter = new TextField();
     private final TextField caloriesFilter = new TextField();
 
-    public RecipeView(RecipeService recipeService, RecipeRepository recipeRepository,
-                      ShoppingRepository shoppingRepository, FavoriteRepository favoriteRepository, AuditService auditService) {
+    public RecipeView(RecipeService recipeService,
+                      RecipeRepository recipeRepository,
+                      FavoriteRepository favoriteRepository,
+                      AuditService auditService,
+                      ShoppingService shoppingService) {
         this.recipeService = recipeService;
         this.recipeRepository = recipeRepository;
-        this.shoppingRepository = shoppingRepository;
         this.favoriteRepository = favoriteRepository;
         this.auditService = auditService;
+        this.shoppingService = shoppingService;
 
         setSizeFull();
+        setPadding(true);
+        setSpacing(true);
+        getStyle()
+                .set("background", "linear-gradient(180deg, #fff7ed 0%, #ffffff 38%)")
+                .set("gap", "1rem");
+
         add(new H1("Recipe Finder Dashboard"));
 
         recipeGrid.getElement().getStyle().set("--vaadin-grid-cell-white-space", "normal");
+        recipeGrid.getStyle()
+                .set("border-radius", "24px")
+                .set("overflow", "hidden")
+                .set("box-shadow", "0 18px 42px rgba(15, 23, 42, 0.08)")
+                .set("background", "#ffffff");
 
-        Grid.Column<Recipe> titleColumn = recipeGrid.addColumn(Recipe::getTitle)
+        Grid.Column<Recipe> titleColumn = recipeGrid.addComponentColumn(this::createRecipeTitleLink)
                 .setHeader("Title").setWidth("250px").setFlexGrow(0).setSortable(true);
 
         Grid.Column<Recipe> categoryColumn = recipeGrid.addColumn(Recipe::getCategory)
                 .setHeader("Category").setWidth("150px").setFlexGrow(0).setSortable(true);
 
         Grid.Column<Recipe> caloriesColumn = recipeGrid.addColumn(Recipe::getCalories)
-                .setHeader("Kcal").setWidth("100px").setFlexGrow(0).setSortable(true);
+                .setHeader("Kcal").setWidth("150px").setFlexGrow(0).setSortable(true);
 
-        recipeGrid.addComponentColumn(recipe -> {
-            Image image = new Image(recipe.getImageUrl() != null ? recipe.getImageUrl() : "", "No image");
-            image.setWidth("100px"); image.setHeight("100px");
-            image.getStyle().set("border-radius", "12px").set("object-fit", "cover");
-            return image;
-        }).setHeader("Preview").setWidth("140px").setFlexGrow(0);
+        recipeGrid.addComponentColumn(this::createRecipePreviewLink)
+                .setHeader("Preview").setWidth("140px").setFlexGrow(0);
 
-        recipeGrid.addComponentColumn(this::createActions).setHeader("Actions").setWidth("230px").setFlexGrow(1);
+        recipeGrid.addComponentColumn(this::createActions)
+                .setHeader("Actions")
+                .setAutoWidth(true);
 
         HeaderRow filterRow = recipeGrid.appendHeaderRow();
         setupFilter(titleFilter, "Search title...");
@@ -84,11 +99,13 @@ public class RecipeView extends VerticalLayout {
             recipeService.generateDailyMenu();
             refreshGrid();
         });
+        generateBtn.setTooltipText("Generate three meals for the day and add them to the dashboard.");
 
         Button fetchBtn = new Button("Fetch Random Recipe", e -> {
             recipeService.fetchAndSaveRandomRecipe();
             refreshGrid();
         });
+        fetchBtn.setTooltipText("Fetch one random recipe and add it to the dashboard.");
 
         Button deleteAllBtn = new Button("Delete All", e -> {
             ConfirmDialog dialog = new ConfirmDialog();
@@ -101,7 +118,6 @@ public class RecipeView extends VerticalLayout {
 
             dialog.addConfirmListener(event -> {
                 recipeService.deleteAllRecipes();
-                // Czyścimy filtry, żeby pokazać pustą bazę
                 titleFilter.clear();
                 categoryFilter.clear();
                 caloriesFilter.clear();
@@ -111,8 +127,19 @@ public class RecipeView extends VerticalLayout {
             dialog.open();
         });
         deleteAllBtn.addThemeVariants(ButtonVariant.LUMO_ERROR);
+        deleteAllBtn.setTooltipText("Delete all recipes from the dashboard.");
 
-        add(new HorizontalLayout(generateBtn, fetchBtn, deleteAllBtn), recipeGrid);
+        HorizontalLayout actionsBar = new HorizontalLayout(generateBtn, fetchBtn, deleteAllBtn);
+        actionsBar.setWidthFull();
+        actionsBar.getStyle()
+                .set("padding", "1rem")
+                .set("border-radius", "22px")
+                .set("background", "rgba(255,255,255,0.82)")
+                .set("box-shadow", "0 18px 36px rgba(15, 23, 42, 0.08)")
+                .set("backdrop-filter", "blur(10px)")
+                .set("flex-wrap", "wrap");
+
+        add(actionsBar, recipeGrid);
         refreshGrid();
     }
 
@@ -125,37 +152,89 @@ public class RecipeView extends VerticalLayout {
     }
 
     private HorizontalLayout createActions(Recipe recipe) {
-        Button favBtn = new Button("❤️", e -> {
+        Button favoriteButton = new Button(VaadinIcon.HEART.create(), e -> {
             if (!favoriteRepository.existsByRecipeId(recipe.getId())) {
-                favoriteRepository.save(Favorite.builder().recipe(recipe).build());
+                favoriteRepository.save(Favorite.builder()
+                        .recipe(recipe)
+                        .recipeIdSnapshot(recipe.getId())
+                        .recipeTitle(recipe.getTitle())
+                        .recipeCategory(recipe.getCategory())
+                        .recipeCalories(recipe.getCalories())
+                        .recipeImageUrl(recipe.getImageUrl())
+                        .recipeInstructions(recipe.getInstructions())
+                        .recipeIngredients(recipe.getIngredients())
+                        .build());
                 auditService.log("UI_ADD_FAVORITE", "Added: " + recipe.getTitle());
                 Notification.show("Added to Favorites!");
-            } else { Notification.show("Already in Favorites!"); }
+            } else {
+                Notification.show("Already in Favorites!");
+            }
         });
-        favBtn.setTooltipText("Add to Favorites");
+        favoriteButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        favoriteButton.setTooltipText("Add this recipe to favorites.");
 
-        Button cartBtn = new Button("🛒", e -> {
-            shoppingRepository.save(ShoppingItem.builder()
-                    .ingredientName("Ingredients for: " + recipe.getTitle())
-                    .amount("1 set").isPurchased(false).build());
-            auditService.log("UI_ADD_TO_CART", "Recipe: " + recipe.getTitle());
-            Notification.show("Added to Shopping List!");
+        Button shoppingButton = new Button(VaadinIcon.CART.create(), e -> {
+            int addedItems = shoppingService.addRecipeIngredients(recipe);
+            Notification.show(addedItems > 0
+                    ? "Added " + addedItems + " ingredients to Shopping List!"
+                    : "No ingredients found for this recipe.");
         });
-        cartBtn.setTooltipText("Add to Shopping List");
+        shoppingButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        shoppingButton.setTooltipText("Add this recipe's ingredients to the shopping list.");
 
-        Button deleteBtn = new Button("🗑️", e -> {
-            recipeRepository.delete(recipe);
+        Button deleteButton = new Button(VaadinIcon.TRASH.create(), e -> {
+            recipeService.deleteRecipe(recipe);
             auditService.log("UI_DELETE_RECIPE", "Deleted: " + recipe.getTitle());
             refreshGrid();
             Notification.show("Recipe removed");
         });
-        deleteBtn.setTooltipText("Remove from dashboard");
+        deleteButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        deleteButton.setTooltipText("Remove this recipe from the dashboard.");
 
-        return new HorizontalLayout(favBtn, cartBtn, deleteBtn);
+        HorizontalLayout actions = new HorizontalLayout(favoriteButton, shoppingButton, deleteButton);
+        actions.getStyle().set("flex-wrap", "wrap");
+        return actions;
+    }
+
+    private RouterLink createRecipeTitleLink(Recipe recipe) {
+        RouterLink link = new RouterLink();
+        link.setRoute(RecipeDetailsView.class);
+        link.setQueryParameters(QueryParameters.simple(java.util.Map.of(
+                "type", "recipe",
+                "id", String.valueOf(recipe.getId())
+        )));
+
+        Span title = new Span(recipe.getTitle());
+        title.getStyle()
+                .set("font-weight", "700")
+                .set("color", "var(--lumo-primary-text-color)")
+                .set("line-height", "1.4");
+        link.add(title);
+        link.getStyle().set("text-decoration", "none");
+        return link;
+    }
+
+    private RouterLink createRecipePreviewLink(Recipe recipe) {
+        RouterLink link = new RouterLink();
+        link.setRoute(RecipeDetailsView.class);
+        link.setQueryParameters(QueryParameters.simple(java.util.Map.of(
+                "type", "recipe",
+                "id", String.valueOf(recipe.getId())
+        )));
+
+        Image image = new Image(recipe.getImageUrl() != null ? recipe.getImageUrl() : "", recipe.getTitle());
+        image.setWidth("100px");
+        image.setHeight("100px");
+        image.getStyle()
+                .set("border-radius", "16px")
+                .set("object-fit", "cover")
+                .set("box-shadow", "0 10px 24px rgba(15, 23, 42, 0.16)");
+        link.add(image);
+        link.getStyle().set("display", "inline-flex");
+        return link;
     }
 
     private void refreshGrid() {
-        // Pobieramy nową listę z bazy i rzutujemy na ArrayList, żeby mieć pewność świeżości
         List<Recipe> allRecipes = new ArrayList<>();
         recipeRepository.findAll().forEach(allRecipes::add);
 
@@ -174,7 +253,9 @@ public class RecipeView extends VerticalLayout {
     }
 
     private boolean matchesCalories(Integer value, String filter) {
-        if (filter == null || filter.isEmpty()) return true;
+        if (filter == null || filter.isEmpty()) {
+            return true;
+        }
         try {
             int maxKcal = Integer.parseInt(filter);
             return value != null && value <= maxKcal;
@@ -182,4 +263,5 @@ public class RecipeView extends VerticalLayout {
             return true;
         }
     }
+
 }

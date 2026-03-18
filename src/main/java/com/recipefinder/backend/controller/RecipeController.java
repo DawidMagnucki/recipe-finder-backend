@@ -45,8 +45,9 @@ public class RecipeController {
 
     @DeleteMapping("/{id}")
     public void deleteRecipe(@PathVariable Long id) throws RecipeNotFoundException {
-        if (!recipeRepository.existsById(id)) throw new RecipeNotFoundException(id);
-        recipeRepository.deleteById(id);
+        Recipe recipe = recipeRepository.findById(id)
+                .orElseThrow(() -> new RecipeNotFoundException(id));
+        recipeService.deleteRecipe(recipe);
         auditService.log("DELETE_RECIPE", "Deleted recipe with ID: " + id);
     }
 
@@ -71,7 +72,16 @@ public class RecipeController {
             throw new AlreadyInFavoritesException();
         }
 
-        Favorite favorite = favoriteRepository.save(Favorite.builder().recipe(recipe).build());
+        Favorite favorite = favoriteRepository.save(Favorite.builder()
+                .recipe(recipe)
+                .recipeIdSnapshot(recipe.getId())
+                .recipeTitle(recipe.getTitle())
+                .recipeCategory(recipe.getCategory())
+                .recipeCalories(recipe.getCalories())
+                .recipeImageUrl(recipe.getImageUrl())
+                .recipeInstructions(recipe.getInstructions())
+                .recipeIngredients(recipe.getIngredients())
+                .build());
         auditService.log("ADD_TO_FAVORITES", "Recipe: " + recipe.getTitle());
         return favoriteMapper.mapToFavoriteDto(favorite);
     }

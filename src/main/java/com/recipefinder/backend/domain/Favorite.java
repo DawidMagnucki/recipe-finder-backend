@@ -18,4 +18,22 @@ public class Favorite {
     @OneToOne
     @JoinColumn(name = "recipe_id")
     private Recipe recipe;
+
+    private Long recipeIdSnapshot;
+
+    private String recipeTitle;
+
+    private String recipeCategory;
+
+    private Integer recipeCalories;
+
+    private String recipeImageUrl;
+
+    @Lob
+    @Column(columnDefinition = "TEXT")
+    private String recipeInstructions;
+
+    @Lob
+    @Column(columnDefinition = "TEXT")
+    private String recipeIngredients;
 }

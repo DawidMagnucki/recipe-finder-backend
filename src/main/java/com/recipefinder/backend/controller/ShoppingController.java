@@ -30,6 +30,7 @@ public class ShoppingController {
         ShoppingItem item = ShoppingItem.builder()
                 .ingredientName(itemDto.getIngredientName())
                 .amount(itemDto.getAmount())
+                .unit(itemDto.getUnit())
                 .isPurchased(itemDto.isPurchased())
                 .build();
 

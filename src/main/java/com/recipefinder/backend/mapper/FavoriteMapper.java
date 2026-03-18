@@ -10,10 +10,19 @@ import java.util.stream.Collectors;
 public class FavoriteMapper {
 
     public FavoriteDto mapToFavoriteDto(final Favorite favorite) {
+        Long recipeId = favorite.getRecipe() != null ? favorite.getRecipe().getId() : favorite.getRecipeIdSnapshot();
+        String recipeTitle = favorite.getRecipe() != null ? favorite.getRecipe().getTitle() : favorite.getRecipeTitle();
+        String recipeCategory = favorite.getRecipe() != null ? favorite.getRecipe().getCategory() : favorite.getRecipeCategory();
+        Integer recipeCalories = favorite.getRecipe() != null ? favorite.getRecipe().getCalories() : favorite.getRecipeCalories();
+        String recipeImageUrl = favorite.getRecipe() != null ? favorite.getRecipe().getImageUrl() : favorite.getRecipeImageUrl();
+
         return FavoriteDto.builder()
                 .id(favorite.getId())
-                .recipeId(favorite.getRecipe().getId())
-                .recipeTitle(favorite.getRecipe().getTitle())
+                .recipeId(recipeId)
+                .recipeTitle(recipeTitle)
+                .recipeCategory(recipeCategory)
+                .recipeCalories(recipeCalories)
+                .recipeImageUrl(recipeImageUrl)
                 .build();
     }
 

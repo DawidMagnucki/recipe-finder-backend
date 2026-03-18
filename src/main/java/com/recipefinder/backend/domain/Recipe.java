@@ -17,8 +17,12 @@ public class Recipe {
     private Long id;
     private String externalId;
     private String title;
-    @Column(length = 2000)
+    @Lob
+    @Column(columnDefinition = "TEXT")
     private String instructions;
+    @Lob
+    @Column(columnDefinition = "TEXT")
+    private String ingredients;
     private String imageUrl;
     private String category;
     private Integer calories;
