@@ -1,0 +1,118 @@
+# Recipe Finder - Documentation
+
+## 1. Project Goal
+
+Recipe Finder is an application for people who want to browse recipes, save interesting meals, generate a daily menu, and automatically build a shopping list based on ingredients.
+
+The application offers the user:
+- a recipe dashboard with filtering and recipe preview
+- a favorites section for saving selected recipes
+- a recipe details view with image, ingredients, and instructions
+- a shopping list generated from recipe ingredients
+- a daily menu generator
+- random recipe fetching from external data sources
+
+The goal of the project is to combine a user-friendly interface with REST API functionality, database persistence, and external recipe/nutrition integrations in one coherent application.
+
+## 2. How to Run the Project Step by Step
+
+### Requirements
+
+- Java 17 or newer
+- MySQL server
+- Gradle or an IDE with Gradle support (e.g. IntelliJ IDEA)
+
+### Step 1. Configure the database
+
+Create a MySQL database named:
+
+```text
+recipe_db
+```
+
+Default database configuration is stored in:
+
+```text
+src/main/resources/application.properties
+```
+
+By default, the application uses:
+- database URL: `jdbc:mysql://localhost:3306/recipe_db?serverTimezone=UTC&useSSL=false`
+- username: `root`
+- password: `1234`
+
+If needed, update these values in `application.properties` to match your local MySQL setup.
+
+### Step 2. Open the project
+
+Open the repository in IntelliJ IDEA or another Java-compatible IDE.
+
+### Step 3. Start the application
+
+Run:
+
+```bash
+./gradlew bootRun
+```
+
+On Windows:
+
+```bash
+gradlew.bat bootRun
+```
+
+### Step 4. Open the application in the browser
+
+After startup, open:
+
+```text
+http://localhost:8080
+```
+
+### Step 5. Use the main application modules
+
+After launch, the user can:
+- browse recipes in the dashboard
+- open a selected recipe details view
+- add recipes to favorites
+- generate a daily menu
+- add ingredients to the shopping list
+- mark shopping items as bought
+
+## 3. Additional Technical Information
+
+The project uses external APIs:
+- TheMealDB
+- Edamam
+
+### TheMealDB
+
+TheMealDB is used to fetch recipe data. In this project it works without additional user authorization.
+
+### Edamam
+
+Edamam is used to retrieve nutrition data such as calories. It requires API credentials.
+
+The credentials are configured in:
+
+```text
+src/main/resources/application.properties
+```
+
+Relevant properties:
+
+```text
+edamam.api.app-id=YOUR_APP_ID
+edamam.api.app-key=YOUR_APP_KEY
+```
+
+To enable full functionality:
+1. create an account in Edamam
+2. generate your API credentials
+3. replace the values in `application.properties` with your own `app-id` and `app-key`
+
+If the credentials are missing or invalid, nutrition-related functionality may be incomplete.
+
+## 4. Additional Note
+
+Recipe Finder is implemented as one Spring Boot application that contains both the Vaadin user interface and the REST API.

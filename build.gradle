@@ -6,6 +6,7 @@ plugins {
 //	id 'com.vaadin' version '25.0.7'
 //	id 'com.vaadin' version '24.6.5'
 	id 'com.vaadin' version '24.6.6'
+	id 'jacoco'
 }
 
 group = 'com.recipefinder'
@@ -56,4 +57,18 @@ dependencyManagement {
 
 tasks.named('test') {
 	useJUnitPlatform()
+	finalizedBy tasks.named('jacocoTestReport')
+}
+
+jacoco {
+	toolVersion = "0.8.12"
+}
+
+tasks.named('jacocoTestReport') {
+	dependsOn tasks.named('test')
+	reports {
+		xml.required = true
+		html.required = true
+		csv.required = false
+	}
 }

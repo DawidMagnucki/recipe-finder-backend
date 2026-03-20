@@ -19,9 +19,9 @@ public class RecipeFinderBackendApplication {
 	@org.springframework.context.annotation.Profile("!test")
 	public CommandLineRunner testRecipeSave(RecipeService recipeService) {
 		return args -> {
-			System.out.println("Pobieram i zapisuję przepis...");
+			System.out.println("Fetching and saving recipe...");
 			recipeService.fetchAndSaveRandomRecipe();
-			System.out.println("Zrobione! Sprawdź bazę danych MySQL.");
+			System.out.println("Done! Check you MySQL DB.");
 		};
 	}
 }
